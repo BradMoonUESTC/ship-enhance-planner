@@ -16,7 +16,7 @@ DEFAULT_CAPS = {
     "抗浪": 42,
     "护甲": 25,
     "船耐": 900,
-    ROWING_STAT: 0,
+    ROWING_STAT: 40,
 }
 
 
@@ -104,6 +104,10 @@ def solve_plan(payload: dict) -> dict:
     use_all_steps = bool(payload.get("useAllSteps", True))
     time_limit = float(payload.get("timeLimitSeconds") or 20)
     materials = build_materials(has_rowing)
+    crossing_material_counts = {
+        stat: min(4, sum(1 for material in materials if material.gains.get(stat, (0, 0))[1] > 0))
+        for stat in stats
+    }
 
     model = cp_model.CpModel()
     stat_upper = {
@@ -171,7 +175,7 @@ def solve_plan(payload: dict) -> dict:
                     for i, material in enumerate(materials)
                     if material.gains.get(stat, (0, 0))[1] > 0
                 )
-                == 4
+                == crossing_material_counts[stat]
             ).OnlyEnforceIf(stat_crossing[t, stat])
 
     solver = cp_model.CpSolver()

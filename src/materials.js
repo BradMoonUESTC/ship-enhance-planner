@@ -9,7 +9,7 @@ export const DEFAULT_CAPS = {
   抗浪: 42,
   护甲: 25,
   船耐: 900,
-  桨力: 0,
+  桨力: 40,
 };
 
 const q = "橙";
