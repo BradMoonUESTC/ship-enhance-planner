@@ -1,4 +1,4 @@
-import { existsSync, rmSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { execFileSync, spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -39,18 +39,16 @@ const dependencyNames = [
   "google",
   "immutabledict",
   "immutabledict-*.dist-info",
+  "pybind11_abseil",
   "bin",
   "__pycache__",
 ];
 
-for (const name of dependencyNames) {
-  const path = join(apiDir, name);
-  if (name.includes("*")) {
-    execFileSync("bash", ["-lc", `rm -rf ${JSON.stringify(path)}`]);
-  } else if (existsSync(path)) {
-    rmSync(path, { recursive: true, force: true });
-  }
-}
+const escapedApiDir = apiDir.replace(/'/g, "'\\''");
+execFileSync("bash", [
+  "-lc",
+  `cd '${escapedApiDir}' && rm -rf ${dependencyNames.join(" ")}`,
+]);
 
 const python =
   process.env.PYTHON ||
@@ -69,7 +67,7 @@ const packages = [
   "sniffio==1.3.1",
   "ortools==9.15.6755",
   "absl-py==2.4.0",
-  "numpy==2.5.0",
+  "numpy==2.3.5",
   "protobuf==6.33.6",
   "immutabledict==4.3.1",
 ];
