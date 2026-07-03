@@ -1,14 +1,18 @@
 import React, { useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { ArrowDown, ArrowUp, Calculator, Loader2, RotateCcw, ShipWheel } from "lucide-react";
-import { DEFAULT_CAPS, STATS } from "./materials.js";
+import { DEFAULT_CAPS, ROWING_STAT, ROWING_STATS, STATS } from "./materials.js";
 import "./styles.css";
 
 const defaultPriority = ["护甲", "船耐", "转向", "横帆", "纵帆", "抗浪"];
 const apiBase = import.meta.env.VITE_API_BASE ?? "";
 
-function emptyStats(value = 0) {
-  return Object.fromEntries(STATS.map((stat) => [stat, value]));
+function statsFor(hasRowing) {
+  return hasRowing ? ROWING_STATS : STATS;
+}
+
+function emptyStats(stats, value = 0) {
+  return Object.fromEntries(stats.map((stat) => [stat, value]));
 }
 
 function moveItem(items, index, direction) {
@@ -20,22 +24,36 @@ function moveItem(items, index, direction) {
 }
 
 function formatGain(step) {
-  return STATS.filter((stat) => step.gain[stat] > 0)
+  return Object.keys(step.gain).filter((stat) => step.gain[stat] > 0)
     .map((stat) => `${stat}+${step.gain[stat]}`)
     .join("，");
 }
 
 function App() {
+  const [hasRowing, setHasRowing] = useState(false);
   const [priority, setPriority] = useState(defaultPriority);
   const [caps, setCaps] = useState(DEFAULT_CAPS);
-  const [start, setStart] = useState(emptyStats(0));
+  const [start, setStart] = useState(emptyStats(STATS, 0));
   const [steps, setSteps] = useState(7);
   const [mode, setMode] = useState("targetable");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const activeStats = useMemo(() => statsFor(hasRowing), [hasRowing]);
   const priorityText = useMemo(() => priority.join(" > "), [priority]);
+
+  function toggleRowing(nextHasRowing) {
+    setHasRowing(nextHasRowing);
+    setPriority((current) => {
+      if (nextHasRowing) return current.includes(ROWING_STAT) ? current : [...current, ROWING_STAT];
+      return current.filter((stat) => stat !== ROWING_STAT);
+    });
+    setStart((current) => ({ ...current, [ROWING_STAT]: current[ROWING_STAT] ?? 0 }));
+    setCaps((current) => ({ ...current, [ROWING_STAT]: current[ROWING_STAT] ?? DEFAULT_CAPS[ROWING_STAT] }));
+    setResult(null);
+    setError("");
+  }
 
   async function run() {
     setLoading(true);
@@ -50,6 +68,7 @@ function App() {
           start,
           steps: Number(steps),
           mode,
+          hasRowing,
           useAllSteps: true,
           timeLimitSeconds: 30,
         }),
@@ -68,7 +87,8 @@ function App() {
   function reset() {
     setPriority(defaultPriority);
     setCaps(DEFAULT_CAPS);
-    setStart(emptyStats(0));
+    setStart(emptyStats(STATS, 0));
+    setHasRowing(false);
     setSteps(7);
     setMode("targetable");
     setResult(null);
@@ -101,6 +121,14 @@ function App() {
           </div>
 
           <div className="field">
+            <label>桨力强化</label>
+            <div className="segmented">
+              <button className={!hasRowing ? "active" : ""} onClick={() => toggleRowing(false)}>无桨力</button>
+              <button className={hasRowing ? "active" : ""} onClick={() => toggleRowing(true)}>有桨力</button>
+            </div>
+          </div>
+
+          <div className="field">
             <label>优先级</label>
             <div className="priority-list">
               {priority.map((stat, index) => (
@@ -117,7 +145,7 @@ function App() {
           <div className="field">
             <label>强化上限</label>
             <div className="stat-grid">
-              {STATS.map((stat) => (
+              {activeStats.map((stat) => (
                 <label className="number-field" key={stat}>
                   <span>{stat}</span>
                   <input value={caps[stat]} type="number" onChange={(event) => setCaps({ ...caps, [stat]: Number(event.target.value) })} />
@@ -129,7 +157,7 @@ function App() {
           <div className="field">
             <label>当前强化值</label>
             <div className="stat-grid">
-              {STATS.map((stat) => (
+              {activeStats.map((stat) => (
                 <label className="number-field" key={stat}>
                   <span>{stat}</span>
                   <input value={start[stat]} type="number" onChange={(event) => setStart({ ...start, [stat]: Number(event.target.value) })} />
@@ -155,7 +183,7 @@ function App() {
             </div>
             <div>
               <span>材料</span>
-              <strong>橙色材料 / 每次 4 类</strong>
+              <strong>{hasRowing ? "含桨力橙色材料" : "橙色材料"} / 每次 4 类</strong>
             </div>
             <div>
               <span>规则</span>

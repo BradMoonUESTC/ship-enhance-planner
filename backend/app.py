@@ -14,6 +14,7 @@ class OptimizeRequest(BaseModel):
     start: dict[str, int] = Field(default_factory=dict)
     steps: int = 7
     mode: str = "targetable"
+    hasRowing: bool = False
     useAllSteps: bool = True
     timeLimitSeconds: float = 20
     workers: int = 8

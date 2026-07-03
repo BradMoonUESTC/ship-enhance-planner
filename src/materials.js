@@ -1,4 +1,6 @@
+export const ROWING_STAT = "桨力";
 export const STATS = ["护甲", "船耐", "转向", "横帆", "纵帆", "抗浪"];
+export const ROWING_STATS = [...STATS, ROWING_STAT];
 
 export const DEFAULT_CAPS = {
   横帆: 105,
@@ -7,6 +9,7 @@ export const DEFAULT_CAPS = {
   抗浪: 42,
   护甲: 25,
   船耐: 900,
+  桨力: 0,
 };
 
 const q = "橙";

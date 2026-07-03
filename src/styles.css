@@ -243,7 +243,7 @@ input {
 }
 
 .final-grid {
-  grid-template-columns: repeat(6, minmax(100px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
   padding: 16px;
 }
 

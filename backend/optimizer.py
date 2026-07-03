@@ -8,6 +8,7 @@ from ortools.sat.python import cp_model
 
 STATS = ["护甲", "船耐", "转向", "横帆", "纵帆", "抗浪"]
 ALL_STATS = ["横帆", "纵帆", "转向", "抗浪", "护甲", "船耐"]
+ROWING_STAT = "桨力"
 DEFAULT_CAPS = {
     "横帆": 105,
     "纵帆": 105,
@@ -15,6 +16,7 @@ DEFAULT_CAPS = {
     "抗浪": 42,
     "护甲": 25,
     "船耐": 900,
+    ROWING_STAT: 0,
 }
 
 
@@ -29,9 +31,17 @@ class Material:
         return f"{self.category}（{self.quality}）"
 
 
-def build_materials() -> List[Material]:
+def active_stats(has_rowing: bool) -> List[str]:
+    return ALL_STATS + ([ROWING_STAT] if has_rowing else [])
+
+
+def priority_stats(has_rowing: bool) -> List[str]:
+    return STATS + ([ROWING_STAT] if has_rowing else [])
+
+
+def build_materials(has_rowing: bool) -> List[Material]:
     orange = "橙"
-    return [
+    materials = [
         Material("备用帆套件", orange, {"横帆": (6, 14), "纵帆": (6, 14)}),
         Material("船帆养护工具", orange, {"横帆": (4, 10), "纵帆": (9, 18)}),
         Material("帆布专用涂料", orange, {"横帆": (9, 18), "纵帆": (4, 10)}),
@@ -48,16 +58,22 @@ def build_materials() -> List[Material]:
         Material("船尾回廊", orange, {"护甲": (2, 4), "船耐": (25, 95)}),
         Material("龙骨维护工具", orange, {"船耐": (80, 180)}),
     ]
+    if has_rowing:
+        materials.extend([
+            Material("划船辅助套件", orange, {ROWING_STAT: (3, 7), "转向": (2, 4)}),
+            Material("备用桨套件", orange, {ROWING_STAT: (5, 11)}),
+        ])
+    return materials
 
 
-def complete_priority(priority: List[str]) -> List[str]:
+def complete_priority(priority: List[str], stats: List[str], fallback: List[str]) -> List[str]:
     ordered = []
     for stat in priority:
-        if stat not in ALL_STATS:
+        if stat not in stats:
             raise ValueError(f"未知属性：{stat}")
         if stat not in ordered:
             ordered.append(stat)
-    for stat in STATS:
+    for stat in fallback:
         if stat not in ordered:
             ordered.append(stat)
     return ordered
@@ -74,21 +90,27 @@ def mode_bounds(mode: str, low: int, high: int) -> Tuple[int, int]:
 
 
 def solve_plan(payload: dict) -> dict:
-    priority = complete_priority(payload.get("priority") or ["护甲", "船耐", "转向", "横帆", "纵帆", "抗浪"])
+    has_rowing = bool(payload.get("hasRowing", False))
+    stats = active_stats(has_rowing)
+    priority = complete_priority(
+        payload.get("priority") or ["护甲", "船耐", "转向", "横帆", "纵帆", "抗浪"],
+        stats,
+        priority_stats(has_rowing),
+    )
     caps = {**DEFAULT_CAPS, **{k: int(v) for k, v in (payload.get("caps") or {}).items()}}
-    start = {stat: int((payload.get("start") or {}).get(stat, 0)) for stat in ALL_STATS}
+    start = {stat: int((payload.get("start") or {}).get(stat, 0)) for stat in stats}
     steps = int(payload.get("steps") or 7)
     mode = payload.get("mode") or "targetable"
     use_all_steps = bool(payload.get("useAllSteps", True))
     time_limit = float(payload.get("timeLimitSeconds") or 20)
-    materials = build_materials()
+    materials = build_materials(has_rowing)
 
     model = cp_model.CpModel()
     stat_upper = {
         stat: start[stat] + steps * sum(
             sorted([m.gains.get(stat, (0, 0))[1] for m in materials], reverse=True)[:4]
         )
-        for stat in ALL_STATS
+        for stat in stats
     }
 
     before = {}
@@ -106,7 +128,7 @@ def solve_plan(payload: dict) -> dict:
         if use_all_steps:
             model.Add(active[t] == 1)
 
-        for stat in ALL_STATS:
+        for stat in stats:
             before[t, stat] = model.NewIntVar(0, stat_upper[stat], f"before_{t}_{stat}")
             after[t, stat] = model.NewIntVar(0, stat_upper[stat], f"after_{t}_{stat}")
             if t == 0:
@@ -127,7 +149,7 @@ def solve_plan(payload: dict) -> dict:
 
         for i, material in enumerate(materials):
             selected[t, i] = model.NewBoolVar(f"pick_{t}_{i}")
-            for stat in ALL_STATS:
+            for stat in stats:
                 raw_low, raw_high = material.gains.get(stat, (0, 0))
                 low, high = mode_bounds(mode, raw_low, raw_high)
                 gain[t, i, stat] = model.NewIntVar(0, high, f"gain_{t}_{i}_{stat}")
@@ -141,7 +163,7 @@ def solve_plan(payload: dict) -> dict:
         model.Add(sum(selected[t, i] for i in range(len(materials))) == 4 * active[t])
         for category in sorted({m.category for m in materials}):
             model.Add(sum(selected[t, i] for i, m in enumerate(materials) if m.category == category) <= 1)
-        for stat in ALL_STATS:
+        for stat in stats:
             model.Add(after[t, stat] == before[t, stat] + sum(gain[t, i, stat] for i in range(len(materials))))
             model.Add(
                 sum(
@@ -172,18 +194,18 @@ def solve_plan(payload: dict) -> dict:
         status = solver.Solve(model)
 
     status_name = "OPTIMAL" if status == cp_model.OPTIMAL else "FEASIBLE"
-    final = {stat: solver.Value(after[steps - 1, stat]) for stat in ALL_STATS}
+    final = {stat: solver.Value(after[steps - 1, stat]) for stat in stats}
     plan_steps = []
     for t in range(steps):
         if solver.Value(active[t]) == 0:
             continue
         picked = []
-        step_gain = {stat: 0 for stat in ALL_STATS}
+        step_gain = {stat: 0 for stat in stats}
         for i, material in enumerate(materials):
             if not solver.Value(selected[t, i]):
                 continue
             gains = {}
-            for stat in ALL_STATS:
+            for stat in stats:
                 value = solver.Value(gain[t, i, stat])
                 if value:
                     gains[stat] = {
@@ -194,8 +216,8 @@ def solve_plan(payload: dict) -> dict:
             picked.append({"name": material.name, "category": material.category, "gains": gains})
         plan_steps.append({
             "index": len(plan_steps) + 1,
-            "before": {stat: solver.Value(before[t, stat]) for stat in ALL_STATS},
-            "after": {stat: solver.Value(after[t, stat]) for stat in ALL_STATS},
+            "before": {stat: solver.Value(before[t, stat]) for stat in stats},
+            "after": {stat: solver.Value(after[t, stat]) for stat in stats},
             "gain": step_gain,
             "materials": picked,
         })
@@ -216,4 +238,5 @@ def solve_plan(payload: dict) -> dict:
         "locked": locked,
         "keyPoints": key_points,
         "mode": mode,
+        "hasRowing": has_rowing,
     }
