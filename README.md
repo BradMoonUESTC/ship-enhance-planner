@@ -47,11 +47,11 @@ npm run build
 
 ```text
 Framework preset: Vite
-Build command: npm run build
+Build command: npm run build:edgeone-native
 Output directory: dist
 ```
 
-后端依赖在 `cloud-functions/requirements.txt`，EdgeOne 会在构建云函数时安装。
+构建命令会把 Python 依赖精简安装到 `cloud-functions/api/`。这样可以继续使用 OR-Tools CP-SAT，同时避开 EdgeOne 云函数 128MiB 包体积限制。
 
 如果需要 Build Output API 产物，也可以运行：
 

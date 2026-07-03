@@ -1,2 +1,1 @@
-fastapi==0.115.6
-ortools==9.15.6755
+# Dependencies are vendored by npm run build:edgeone-native.

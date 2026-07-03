@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
+    "build:edgeone-native": "npm run build && node scripts/vendor-edgeone-python.mjs",
     "build:edgeone": "npm run build && node scripts/build-edgeone.mjs",
     "preview": "vite preview --host 127.0.0.1"
   },
