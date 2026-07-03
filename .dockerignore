@@ -1,0 +1,13 @@
+.git
+.edgeone
+.pyenv-build
+.python-user-base
+node_modules
+dist
+__pycache__
+*.pyc
+.DS_Store
+.env
+cloud-functions
+edgeone.json
+scripts

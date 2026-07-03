@@ -1,7 +1,7 @@
 FROM node:22-bookworm AS web
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm install
+RUN npm ci
 COPY index.html ./index.html
 COPY src ./src
 RUN npm run build
