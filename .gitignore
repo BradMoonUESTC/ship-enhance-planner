@@ -5,6 +5,8 @@ __pycache__/
 *.pyc
 .DS_Store
 .env
+.pyenv-build/
+.python-user-base/
 cloud-functions/api/*
 !cloud-functions/api/[[default]].py
 !cloud-functions/api/optimizer.py

@@ -85,7 +85,16 @@ execFileSync(
     apiDir,
     ...packages,
   ],
-  { stdio: "inherit" }
+  {
+    stdio: "inherit",
+    env: {
+      ...process.env,
+      PYENV_ROOT: join(root, ".pyenv-build"),
+      PYTHONUSERBASE: join(root, ".python-user-base"),
+      PIP_NO_WARN_SCRIPT_LOCATION: "0",
+      PIP_DISABLE_PIP_VERSION_CHECK: "1",
+    },
+  }
 );
 
 execFileSync("bash", ["-lc", `find ${JSON.stringify(apiDir)} -type d -name __pycache__ -prune -exec rm -rf {} +`]);
