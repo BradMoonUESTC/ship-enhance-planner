@@ -72,7 +72,7 @@ const packages = [
   "immutabledict==4.3.1",
 ];
 
-execFileSync(
+const pipResult = spawnSync(
   python,
   [
     "-m",
@@ -93,6 +93,29 @@ execFileSync(
       PYTHONUSERBASE: join(root, ".python-user-base"),
       PIP_NO_WARN_SCRIPT_LOCATION: "0",
       PIP_DISABLE_PIP_VERSION_CHECK: "1",
+    },
+  }
+);
+
+if (pipResult.status !== 0 && pipResult.status !== 126) {
+  throw new Error(`pip install failed with exit code ${pipResult.status}`);
+}
+
+if (pipResult.status === 126) {
+  console.warn("pip install returned 126 after installing packages; continuing after import verification.");
+}
+
+execFileSync(
+  python,
+  [
+    "-c",
+    "import fastapi; from ortools.sat.python import cp_model; print('python deps ok')",
+  ],
+  {
+    stdio: "inherit",
+    env: {
+      ...process.env,
+      PYTHONPATH: apiDir,
     },
   }
 );
