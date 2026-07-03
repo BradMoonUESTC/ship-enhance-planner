@@ -1,4 +1,5 @@
 import { cpSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -15,6 +16,27 @@ cpSync(join(root, "dist"), assetsDir, { recursive: true });
 cpSync(join(root, "backend", "optimizer.py"), join(apiDir, "optimizer.py"));
 cpSync(join(root, "backend", "requirements.txt"), join(apiDir, "requirements.txt"));
 
+if (process.env.SKIP_EDGEONE_PIP !== "1") {
+  const python =
+    process.env.PYTHON ||
+    (spawnSync("python3", ["--version"], { stdio: "ignore" }).status === 0 ? "python3" : "python");
+  execFileSync(
+    python,
+    [
+      "-m",
+      "pip",
+      "install",
+      "--disable-pip-version-check",
+      "--no-cache-dir",
+      "-r",
+      join(apiDir, "requirements.txt"),
+      "-t",
+      apiDir,
+    ],
+    { stdio: "inherit" }
+  );
+}
+
 writeFileSync(
   join(apiDir, "app.py"),
   `from fastapi import FastAPI\nfrom fastapi.middleware.cors import CORSMiddleware\nfrom pydantic import BaseModel, Field\n\nfrom optimizer import DEFAULT_CAPS, solve_plan\n\n\nclass OptimizeRequest(BaseModel):\n    priority: list[str] = Field(default_factory=lambda: [\"护甲\", \"船耐\", \"转向\", \"横帆\", \"纵帆\", \"抗浪\"])\n    caps: dict[str, int] = Field(default_factory=lambda: DEFAULT_CAPS.copy())\n    start: dict[str, int] = Field(default_factory=dict)\n    steps: int = 7\n    mode: str = \"targetable\"\n    useAllSteps: bool = True\n    timeLimitSeconds: float = 20\n    workers: int = 8\n\n\napp = FastAPI(title=\"Ship Enhance Planner API\")\napp.add_middleware(CORSMiddleware, allow_origins=[\"*\"], allow_credentials=False, allow_methods=[\"*\"], allow_headers=[\"*\"])\n\n\n@app.get(\"/api/health\")\ndef health():\n    return {\"ok\": True}\n\n\n@app.post(\"/api/optimize\")\ndef optimize(request: OptimizeRequest):\n    return solve_plan(request.model_dump())\n`
@@ -25,7 +47,7 @@ writeFileSync(
   JSON.stringify(
     {
       version: 3,
-      routes: [{ src: "^/api/(.*)$" }],
+      routes: [{ src: "^/api(.*)$" }],
     },
     null,
     2
@@ -38,9 +60,9 @@ writeFileSync(
     {
       version: 3,
       routes: [
-        { src: "^/api/(.*)$", dest: "/api/$1" },
         { handle: "filesystem" },
-        { src: "/.*", dest: "/index.html" },
+        { src: "^/api/(.*)$", dest: "/api/$1" },
+        { src: "/.*", dest: "index.html" },
       ],
     },
     null,
