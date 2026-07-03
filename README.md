@@ -36,27 +36,30 @@ http://127.0.0.1:5178
 
 ## EdgeOne Makers 部署
 
-EdgeOne 官方文档支持从 Git 仓库导入项目，并支持 Build Output API。这个项目提供了 EdgeOne 输出脚本：
+EdgeOne 官方文档支持从 Git 仓库导入项目，并支持 Python Runtime 云函数。这个项目使用 Vite 前端加 `cloud-functions/api/[[default]].py` FastAPI 云函数：
 
 ```bash
 npm install
-npm run build:edgeone
-```
-
-构建产物会生成到：
-
-```text
-.edgeone/
+npm run build
 ```
 
 推荐在 EdgeOne Makers 中使用：
 
 ```text
-Build command: npm run build:edgeone
-Output directory: .edgeone
+Framework preset: Vite
+Build command: npm run build
+Output directory: dist
 ```
 
-后端是 Python API Function，依赖 `fastapi` 和 `ortools`。如果 EdgeOne 控制台提示 Python 依赖安装失败，可以先改用 Docker 部署，或把 `/api/optimize` 放到支持 Python 的云函数服务，再在前端设置 `VITE_API_BASE`。
+后端依赖在 `cloud-functions/requirements.txt`，EdgeOne 会在构建云函数时安装。
+
+如果需要 Build Output API 产物，也可以运行：
+
+```bash
+npm run build:edgeone
+```
+
+但 EdgeOne 控制台部署推荐优先使用 Vite + `cloud-functions` 源码模式。
 
 ## Docker
 
